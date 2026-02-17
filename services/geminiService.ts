@@ -2,9 +2,16 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { Storyboard, Scene, AnalysisResult } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const apiKey = process.env.GEMINI_API_KEY;
 
-// --- SCHEMAS ---
+if (!apiKey) {
+  throw new Error(
+    'GEMINI_API_KEY environment variable is not set. ' +
+    'Please create a .env file with GEMINI_API_KEY=your_api_key'
+  );
+}
+
+const ai = new GoogleGenAI({ apiKey });
 
 const sceneSchema: Schema = {
   type: Type.OBJECT,
@@ -68,7 +75,12 @@ const analysisSchema: Schema = {
   required: ["issues", "overallScore"]
 };
 
-// --- FUNCTIONS ---
+function getErrorMessage(error: unknown, defaultMessage: string): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return defaultMessage;
+}
 
 export const generateStoryboardScript = async (userIdea: string, seed?: number): Promise<Storyboard> => {
   try {
@@ -77,14 +89,14 @@ export const generateStoryboardScript = async (userIdea: string, seed?: number):
       model,
       contents: `Role: World-class Director & Line Producer.
       Task: Create a storyboard from the user idea.
-      
+
       Strategy:
       1. Analyze idea & write a synopsis.
       2. Define a "Primary Setting" to minimize location moves.
       3. Define core "Characters" and keep names/descriptions consistent.
       4. Break down into 4-6 key scenes.
       5. Create detailed image prompts including character physical descriptions.
-      
+
       User Idea: "${userIdea}"`,
       config: {
         responseMimeType: "application/json",
@@ -99,7 +111,7 @@ export const generateStoryboardScript = async (userIdea: string, seed?: number):
     return storyboard;
   } catch (error) {
     console.error("Script generation failed:", error);
-    throw error;
+    throw new Error(getErrorMessage(error, "Script generation failed"));
   }
 };
 
@@ -115,7 +127,7 @@ export const repairStoryboard = async (current: Storyboard): Promise<Storyboard>
       3. Ensure character name/description continuity.
       4. Ensure location name consistency.
       5. DO NOT change 'consistencySeed', 'imagePrompt', 'generatedImageUrl'.
-      
+
       JSON: ${JSON.stringify(current)}`,
       config: {
         responseMimeType: "application/json",
@@ -125,21 +137,20 @@ export const repairStoryboard = async (current: Storyboard): Promise<Storyboard>
 
     if (!response.text) throw new Error("Repair failed");
     const repaired = JSON.parse(response.text) as Storyboard;
-    
-    // Preserve client-side state
+
     repaired.scenes = repaired.scenes.map((scene, i) => {
       const original = current.scenes.find(s => s.sceneNumber === scene.sceneNumber) || current.scenes[i];
-      return { 
-        ...scene, 
+      return {
+        ...scene,
         generatedImageUrl: original?.generatedImageUrl,
-        error: undefined 
+        error: undefined
       };
     });
     repaired.consistencySeed = current.consistencySeed;
     return repaired;
   } catch (error) {
     console.error("Repair failed:", error);
-    throw error;
+    throw new Error(getErrorMessage(error, "Repair failed"));
   }
 };
 
@@ -151,7 +162,7 @@ export const analyzeStoryboardIssues = async (storyboard: Storyboard): Promise<A
       contents: `Role: Continuity Supervisor.
       Task: Analyze storyboard for issues.
       Check for: Consistency (names/places), Missing Data, Flow Logic.
-      
+
       Storyboard: ${JSON.stringify(storyboard)}`,
       config: {
         responseMimeType: "application/json",
@@ -163,16 +174,16 @@ export const analyzeStoryboardIssues = async (storyboard: Storyboard): Promise<A
     return JSON.parse(response.text) as AnalysisResult;
   } catch (error) {
     console.error("Analysis failed:", error);
-    throw error;
+    throw new Error(getErrorMessage(error, "Analysis failed"));
   }
 };
 
 export const generateSceneImage = async (scene: Scene, visualStyle: string, seed?: number): Promise<string> => {
   try {
     const model = "gemini-2.5-flash-image";
-    
+
     const neg = scene.negativePrompt ? `\n**EXCLUDE**: ${scene.negativePrompt}` : '';
-    
+
     let optics = "Arri Alexa sensor";
     if (scene.filmGrain !== false) optics += ", 35mm grain";
     if (scene.chromaticAberration !== false) optics += ", chromatic aberration";
@@ -198,7 +209,7 @@ export const generateSceneImage = async (scene: Scene, visualStyle: string, seed
       Optics: ${optics}.
       Quality: 8k photorealistic.
       ${neg}
-      
+
       **CMD**: Create high-fidelity movie still adhering to style/composition.
     `.trim();
 
@@ -216,10 +227,10 @@ export const generateSceneImage = async (scene: Scene, visualStyle: string, seed
        if (response.promptFeedback?.blockReason) throw new Error(`Blocked: ${response.promptFeedback.blockReason}`);
        throw new Error("No image generated.");
     }
-    return `data:image/jpeg;base64,${data}`; // Defaulting to jpeg mime type as per typical output
+    return `data:image/jpeg;base64,${data}`;
 
-  } catch (error: any) {
+  } catch (error) {
     console.error(`Img gen error scene ${scene.sceneNumber}:`, error);
-    throw new Error(error.message || "Generation failed");
+    throw new Error(getErrorMessage(error, "Generation failed"));
   }
 };

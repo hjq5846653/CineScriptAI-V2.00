@@ -1,4 +1,21 @@
 
+export interface EntityReference {
+  entityId: string;
+  entityName: string;
+  entityType: 'character' | 'prop' | 'location';
+  consistencyScore?: number;
+}
+
+export interface TrackedEntity {
+  id: string;
+  name: string;
+  type: 'character' | 'prop' | 'location';
+  visualDescription: string;
+  firstAppearanceScene: number;
+  featureVector?: string;
+  locked: boolean;
+}
+
 export interface Scene {
   sceneNumber: number;
   shotTitle?: string;
@@ -19,12 +36,11 @@ export interface Scene {
   notes?: string;
   negativePrompt?: string;
   transition?: string;
-  // Cinematic Effects
   filmGrain?: boolean;
   chromaticAberration?: boolean;
   volumetricLighting?: boolean;
-  // State
   error?: string;
+  entityReferences?: EntityReference[];
 }
 
 export interface Storyboard {
@@ -32,10 +48,12 @@ export interface Storyboard {
   synopsis: string;
   genre: string;
   visualStyle: string;
-  location?: string; // Primary setting
+  location?: string;
   scenes: Scene[];
   consistencySeed?: number;
   aspectRatio?: string;
+  targetSceneCount?: number;
+  trackedEntities?: TrackedEntity[];
 }
 
 export interface StoryboardIssue {
@@ -57,4 +75,12 @@ export enum AppState {
   GENERATING_IMAGES,
   COMPLETE,
   ERROR
+}
+
+export type SceneCountMode = 'manual' | 'auto';
+
+export interface SceneCountConfig {
+  mode: SceneCountMode;
+  count: number;
+  recommendation?: number;
 }

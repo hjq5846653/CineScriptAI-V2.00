@@ -13,6 +13,13 @@ interface SceneCardProps {
   onPreview: () => void;
 }
 
+const toArray = (value: unknown): string[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter((v): v is string => typeof v === 'string' && v.trim() !== '');
+  if (typeof value === 'string') return value.split(',').map(s => s.trim()).filter(Boolean);
+  return [];
+};
+
 const SceneCard: React.FC<SceneCardProps> = ({ 
   scene, index, isLoadingImage, onUpdate, onDragStart, onDragOver, onDrop, onRegenerate, onPreview
 }) => {
@@ -23,7 +30,7 @@ const SceneCard: React.FC<SceneCardProps> = ({
 
   const handleSave = () => { onUpdate(editForm); setIsEditing(false); };
   const handleCancel = () => { setEditForm(scene); setIsEditing(false); };
-  const handleChange = (field: keyof Scene, value: any) => { setEditForm(prev => ({ ...prev, [field]: value })); };
+  const handleChange = <K extends keyof Scene>(field: K, value: Scene[K]) => { setEditForm(prev => ({ ...prev, [field]: value })); };
 
   return (
     <div 
@@ -207,8 +214,8 @@ const SceneCard: React.FC<SceneCardProps> = ({
                 <h4 className="font-mono font-bold text-neutral-400 text-[10px] uppercase tracking-wide bg-neutral-800/50 inline-block px-1.5 py-0.5 rounded">{scene.location || `SCENE ${scene.sceneNumber}`}</h4>
                 {(scene.characters || scene.props) && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    {scene.characters?.split(',').map((c,i) => <span key={i} className="text-[9px] text-neutral-300 bg-neutral-800 px-1.5 py-0.5 rounded border border-neutral-700 flex items-center gap-1"><span className="w-1 h-1 bg-blue-500 rounded-full"></span>{c.trim()}</span>)}
-                    {scene.props?.split(',').map((p,i) => <span key={i} className="text-[9px] text-cinematic-accent/80 bg-neutral-800 px-1.5 py-0.5 rounded border border-neutral-700 border-l-2 border-l-cinematic-accent">{p.trim()}</span>)}
+                    {toArray(scene.characters).map((c,i) => <span key={i} className="text-[9px] text-neutral-300 bg-neutral-800 px-1.5 py-0.5 rounded border border-neutral-700 flex items-center gap-1"><span className="w-1 h-1 bg-blue-500 rounded-full"></span>{c.trim()}</span>)}
+                    {toArray(scene.props).map((p,i) => <span key={i} className="text-[9px] text-cinematic-accent/80 bg-neutral-800 px-1.5 py-0.5 rounded border border-neutral-700 border-l-2 border-l-cinematic-accent">{p.trim()}</span>)}
                   </div>
                 )}
              </div>
@@ -244,7 +251,7 @@ const SceneCard: React.FC<SceneCardProps> = ({
              {scene.dialogue && scene.dialogue !== "N/A" && (
                 <div className="mt-auto pt-3 border-t border-cinematic-700">
                    <div className="text-center px-2 py-1 bg-neutral-800/30 rounded relative">
-                      <p className="text-xs italic text-neutral-300 font-serif leading-relaxed">"{scene.dialogue}"</p>
+                      <p className="text-xs italic text-neutral-300 font-serif leading-relaxed">"{typeof scene.dialogue === 'string' ? scene.dialogue : JSON.stringify(scene.dialogue)}"</p>
                    </div>
                 </div>
              )}
